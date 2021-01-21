@@ -1,114 +1,72 @@
 package main
 
 import (
-	"fmt"
-	_ "github.com/DATA-DOG/go-sqlmock"
-	"github.com/gorilla/mux"
-	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
-	"strings"
+	"database/sql"
+	"github.com/DATA-DOG/go-sqlmock"
+	"log"
 	"testing"
 )
 
-func TestHttpGET(t *testing.T){
-	testCases:=[]struct{
-		id string
-		output string
-		statusCode int
-	}{
-		{
-			"100","{\"Id\":\"100\",\"Name\":\"RB8\",\"Age\":35,\"Gender\":\"M\",\"Role\":\"4\"}",200,
-		},
-		{
-			"104","{\"Id\":\"104\",\"Name\":\"Pankaj\",\"Age\":22,\"Gender\":\"M\",\"Role\":\"1\"}",200,
-		},
-		{
-			"101","",400,//does not exist
-		},
+
+func mockDbConnection()*sql.DB{
+	db, mock, err := sqlmock.New() //create mock database
+	if err != nil {
+		log.Fatalf("Error comes when connecting a Stub Database : %v", err)
 	}
-	for i,tc:=range testCases {
-		w:=httptest.NewRecorder()
-		r:=httptest.NewRequest("GET","/employee",nil)
-		r=mux.SetURLVars(r,map[string]string{
-			"id": tc.id,
-		})
-		ReadDataId(w,r)
-		res:=w.Result()
-		readbyte,err:=ioutil.ReadAll(res.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		fmt.Println(string(readbyte))
-		if tc.statusCode!=res.StatusCode {
-			t.Fatalf("statuscodes are not matching")
-		} else if tc.statusCode !=http.StatusBadRequest && string(readbyte) !=	tc.output {
-			t.Fatalf("Failed at %v\nOutput : %v\nActual : %v",i+1,tc.output,string(readbyte))
-		}
-		t.Logf("Passed at %v",i+1)
-	}
+
+	// Here we are creating rows in our mocked database.
+	rows := sqlmock.NewRows([]string{"Id", "Name", "Age", "Gender", "Role"}).
+		AddRow("1", "Pankaj Sharma", 22, "M", "1").
+		AddRow("2", "Rudra Bhardwaj", 21, "M", "2").
+		AddRow("3", "Vivek Sharma", 26, "M", "3")
+	mock.ExpectQuery("^select (.+) from Employe*").WillReturnRows(rows)
+	mock.ExpectQuery("^select (.+) from Employe*").WithArgs("id").WillReturnRows(rows)
+	return db
 }
-func TestHttpPost(t *testing.T){
-	testCases:=[]struct{
-		inp string
-		output string
-		statusCode int
-	}{
-		{
-			"{\"name\":\"RB8\",\"age\":35,\"Gender\":\"M\",\"role\":\"4\"}","RB8 is Added Successfully to Database and Generated id is 133",200,
-		},
+func TestMock(t *testing.T) {
+	db:=mockDbConnection()
+	defer db.Close()
+	//ctx:=context.TODO()
+	//ans:=ReadData(ctx,db)
+	ans,err:=ReadData(db)
+	if err !=nil {
+		t.Fatal(err.Error())
 	}
-	for i,tc:=range testCases {
-		w:=httptest.NewRecorder()
-		r:=httptest.NewRequest("POST","/employee",strings.NewReader(tc.inp))
-		CreateData(w,r)
-		res:=w.Result()
-		readbyte,err:=ioutil.ReadAll(res.Body)
-		if err != nil {
-			t.Fatal(err)
+	expectedOutput:=[]Employee{
+		{"1", "Pankaj Sharma", 22, "M", "1"},
+		{"2", "Rudra Bhardwaj", 21, "M", "2"},
+		{"3", "Vivek Sharma", 26, "M", "3"},
+	}
+	//t.Log(ans)
+	//t.Log(expectedOutput)
+	for i,val:=range expectedOutput {
+		if val!=ans[i]{
+			t.Fatalf("Failed at %v\nExpected Output : %v\nActual Output : %v\n",i+1,val,ans[i])
 		}
-		fmt.Println(string(readbyte))
-		if tc.statusCode!=res.StatusCode {
-			t.Fatalf("statuscodes are not matching")
-		} else if tc.statusCode !=http.StatusBadRequest && string(readbyte) !=	tc.output {
-			t.Fatalf("Failed at %v\nOutput : %v\nActual : %v",i+1,tc.output,string(readbyte))
-		}
-		t.Logf("Passed at %v",i+1)
+		t.Logf("Passed at %v\n",i+1)
 	}
 }
 
-
-func TestHttpPut(t *testing.T){
+func Testmockid(t *testing.T){
+	db:=mockDbConnection()
+	defer db.Close()
 	testCases:=[]struct{
-		id string
-		inp string
-		output string
-		statusCode int
+		input string
+		output Employee
 	}{
-		{
-			"104","{\"Name\":\"Pankaj\",\"Age\":22,\"Gender\":\"M\",\"Role\":\"1\"}","Updated Successfully",200,
-		},
+		{"1",{"1", "Pankaj Sharma", 22, "M", "1"}},
+		{"2",{"2", "Rudra Bhardwaj", 21, "M", "2"}},
+		{"3",{"3", "Vivek Sharma", 26, "M", "3"}},
 	}
-	for i,tc:=range testCases{
-		w:=httptest.NewRecorder()
-		r:=httptest.NewRequest("PUT","/employee",strings.NewReader(tc.inp))
-		r=mux.SetURLVars(r,map[string]string{
-			"id":tc.id,
-		})
-		UpdateData(w,r)
-		res:=w.Result()
-		readbyte,err:=ioutil.ReadAll(res.Body)
+	for i,tc:=range testCases {
+		res,err:=ReadDataid(db, tc.input)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		if res != tc.output {
+			t.Fatalf("Failed at %v\nExpected Output : %v\nActual Output : %v\n",i+1,tc.output,res)
+		}
+		t.Logf("Passed at %v\n",i+1)
+	}
 
-		if err !=nil {
-			t.Fatal(err)
-		}
-		fmt.Println(string(readbyte))
-		if tc.statusCode !=res.StatusCode {
-			t.Fatalf("status codes are not matching")
-		}
-		if tc.output != string(readbyte) {
-			t.Fatalf("Failed at %v\nExpected Output : %v\nActual Output: %v",i+1,tc.output,string(readbyte))
-		}
-		t.Logf("Passed at %v",i+1)
-	}
 }
