@@ -163,11 +163,7 @@ func (dbh *DatabaseHandler)checkuser(id string)bool {
 }
 func (dbh *DatabaseHandler)UpdateData(id string,emp Employee)(Employee,error){
 	db:= dbh.Db
-	var emp1 Employee
-	result,err:=db.Exec("Update Employee set Name=?,Age=?,Gender=?,Role=? where id =?",emp.Name,emp.Age,emp.Gender,emp.Role,id)
-	if err != nil {
-		return emp1,errors.New("Input is not in appropriate format")
-	}
+	result,_:=db.Exec("Update Employee set Name=?,Age=?,Gender=?,Role=? where id =?",emp.Name,emp.Age,emp.Gender,emp.Role,id)
 	emp.Id=id
 	if num,_:=result.RowsAffected();int(num) ==0 {
 		return emp,errors.New("User enterted the existing same data")
@@ -180,13 +176,13 @@ func UpdateDataHandler(w http.ResponseWriter,r* http.Request) {
 	err:=dbh.dbConnection()
 	defer dbh.Db.Close()
 	if err != nil {
-		http.Error(w,err.Error(),http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 	vars := mux.Vars(r)
 	id := vars["id"]
 	if dbh.checkuser(id) == false {
-		http.Error(w, "ID does not exist", http.StatusNotFound)
+		http.Error(w, "Id does not Exist", http.StatusBadRequest)
 		return
 	}
 	var emp Employee
@@ -197,6 +193,9 @@ func UpdateDataHandler(w http.ResponseWriter,r* http.Request) {
 	}
 	log.Print(emp)
 	result, err := dbh.UpdateData(id, emp)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 	post, _ := json.Marshal(result)
 	w.Write(post)
 }
