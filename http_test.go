@@ -9,7 +9,7 @@ import (
 func TestReadAll(t *testing.T) {
 	fdb, mock, err := sqlmock.New() //create mock database
 	if err != nil {
-		log.Fatalf("Error comes when connecting a Stub Database : %v", err)
+		log.Fatalf("Error comes when connecting a mock Database : %v", err)
 	}
 	dbh := DatabaseHandler{fdb}
 	db := dbh.Db
@@ -20,7 +20,7 @@ func TestReadAll(t *testing.T) {
 	rows.AddRow("2", "Rudra Bhardwaj", 21, "M", "2")
 	rows.AddRow("3", "Vivek Sharma", 26, "M", "3")
 
-	mock.ExpectQuery("^select (.+) from Employe*").WillReturnRows(rows)
+	mock.ExpectQuery("^select (.+) from Employee*").WillReturnRows(rows)
 
 	//ctx:=context.TODO()
 	//ans:=ReadData(ctx,db)
@@ -51,34 +51,33 @@ func TestReadById(t *testing.T) {
 	dbh := DatabaseHandler{fdb}
 	db := dbh.Db
 	defer db.Close()
-
-	// Here we are creating rows in our mocked database.
-	row1 := sqlmock.NewRows([]string{"Id", "Name", "Age", "Gender", "Role"}).
-		AddRow("1", "Pankaj Sharma", 22, "M", "1")
-	row2 := sqlmock.NewRows([]string{"Id", "Name", "Age", "Gender", "Role"}).
-		AddRow("2", "Rudra Bhardwaj", 21, "M", "2")
-	row3 := sqlmock.NewRows([]string{"Id", "Name", "Age", "Gender", "Role"}).
-		AddRow("3", "Vivek Sharma", 26, "M", "3")
-	mock.ExpectQuery("^select (.+) from Employe *").WithArgs("1").WillReturnRows(row1)
-	mock.ExpectQuery("^select (.+) from Employe *").WithArgs("2").WillReturnRows(row2)
-	mock.ExpectQuery("^select (.+) from Employe *").WithArgs("3").WillReturnRows(row3)
-	defer db.Close()
-	testCases := []struct {
-		input  string
-		output Employee
-	}{
-		{"1", Employee{"1", "Pankaj Sharma", 22, "M", "1"}},
-		{"2", Employee{"2", "Rudra Bhardwaj", 21, "M", "2"}},
-		{"3", Employee{"3", "Vivek Sharma", 26, "M", "3"}},
+	ExpectedOutput := []Employee {
+		{"1", "Pankaj Sharma", 22, "M", "1"},
+		{"2", "Rudra Bhardwaj", 21, "M", "2"},
+		{"3", "Vivek Sharma", 26, "M", "3"},
 	}
-	for i, tc := range testCases {
-		res, err := dbh.ReadDataId(tc.input)
+	str:=[]string{"Id", "Name", "Age", "Gender", "Role"}
+	for i, tc := range ExpectedOutput {
+		row:=mock.NewRows(str).AddRow(tc.Id,tc.Name,tc.Age,tc.Gender,tc.Role)
+		mock.ExpectQuery("^select (.+) from Employee*").WithArgs(tc.Id).WillReturnRows(row)
+		res, err := dbh.ReadDataId(tc.Id)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		if res != tc.output {
-			t.Fatalf("Failed at %v\nExpected Output : %v\nActual Output : %v\n", i+1, tc.output, res)
+		if res != tc {
+			t.Fatalf("Failed at %v\nExpected Output : %v\nActual Output : %v\n", i+1, tc, res)
 		}
 		t.Logf("Passed at %v\n", i+1)
 	}
 }
+
+//func TestUpdateFunc(t *testing.T){
+//	fdb,mock,err:=sqlmock.New()
+//	if err != nil {
+//		t.Fatalf("Can't connect to a mock database")
+//	}
+//	dbh:=DatabaseHandler{fdb}
+//	db:=dbh.Db
+//
+//
+//}
