@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/crud_opr_with_mux.iml" filepath="$PROJECT_DIR$/.idea/crud_opr_with_mux.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/crud_sqlmock.iml" filepath="$PROJECT_DIR$/.idea/crud_sqlmock.iml" />
     </modules>
   </component>
 </project>
