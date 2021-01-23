@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestMock(t *testing.T) {
+func TestReadAll(t *testing.T) {
 	fdb, mock, err := sqlmock.New() //create mock database
 	if err != nil {
 		log.Fatalf("Error comes when connecting a Stub Database : %v", err)
@@ -20,7 +20,7 @@ func TestMock(t *testing.T) {
 	rows.AddRow("2", "Rudra Bhardwaj", 21, "M", "2")
 	rows.AddRow("3", "Vivek Sharma", 26, "M", "3")
 
-	mock.ExpectQuery("^select  from Employe*").WillReturnRows(rows)
+	mock.ExpectQuery("^select (.+) from Employe*").WillReturnRows(rows)
 
 	//ctx:=context.TODO()
 	//ans:=ReadData(ctx,db)
@@ -43,7 +43,7 @@ func TestMock(t *testing.T) {
 	}
 }
 
-func TestMockId(t *testing.T) {
+func TestReadById(t *testing.T) {
 	fdb, mock, err := sqlmock.New() //create mock database
 	if err != nil {
 		log.Fatalf("Error comes when connecting a Stub Database : %v", err)
