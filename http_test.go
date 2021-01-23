@@ -7,22 +7,24 @@ import (
 )
 
 func TestMock(t *testing.T) {
-	db, mock, err := sqlmock.New() //create mock database
+	fdb, mock, err := sqlmock.New() //create mock database
 	if err != nil {
 		log.Fatalf("Error comes when connecting a Stub Database : %v", err)
 	}
-
-	// Here we are creating rows in our mocked database.
-	rows := sqlmock.NewRows([]string{"Id", "Name", "Age", "Gender", "Role"}).
-		AddRow("1", "Pankaj Sharma", 22, "M", "1").
-		AddRow("2", "Rudra Bhardwaj", 21, "M", "2").
-		AddRow("3", "Vivek Sharma", 26, "M", "3")
-
-	mock.ExpectQuery("^select (.+) from Employe*").WillReturnRows(rows)
+	dbh := DatabaseHandler{fdb}
+	db := dbh.Db
 	defer db.Close()
+	// Here we are creating rows in our mocked database.
+	rows := sqlmock.NewRows([]string{"Id", "Name", "Age", "Gender", "Role"})
+	rows.AddRow("1", "Pankaj Sharma", 22, "M", "1")
+	rows.AddRow("2", "Rudra Bhardwaj", 21, "M", "2")
+	rows.AddRow("3", "Vivek Sharma", 26, "M", "3")
+
+	mock.ExpectQuery("^select  from Employe*").WillReturnRows(rows)
+
 	//ctx:=context.TODO()
 	//ans:=ReadData(ctx,db)
-	ans, err := ReadData(db)
+	ans, err := dbh.ReadDataAll()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -42,10 +44,13 @@ func TestMock(t *testing.T) {
 }
 
 func TestMockId(t *testing.T) {
-	db, mock, err := sqlmock.New() //create mock database
+	fdb, mock, err := sqlmock.New() //create mock database
 	if err != nil {
 		log.Fatalf("Error comes when connecting a Stub Database : %v", err)
 	}
+	dbh := DatabaseHandler{fdb}
+	db := dbh.Db
+	defer db.Close()
 
 	// Here we are creating rows in our mocked database.
 	row1 := sqlmock.NewRows([]string{"Id", "Name", "Age", "Gender", "Role"}).
@@ -67,7 +72,7 @@ func TestMockId(t *testing.T) {
 		{"3", Employee{"3", "Vivek Sharma", 26, "M", "3"}},
 	}
 	for i, tc := range testCases {
-		res, err := ReadDataid(db, tc.input)
+		res, err := dbh.ReadDataId(tc.input)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
