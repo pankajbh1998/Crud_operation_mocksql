@@ -24,31 +24,6 @@ type DatabaseHandler struct{
 	Db *sql.DB
 }
 
-func (dbh* DatabaseHandler)ReadDataAll()([]Employee,error){
-	db:=dbh.Db
-	var ans []Employee
-	res,err:=db.Query("select Id,Name,Age,Gender,Role from Employee")
-	defer res.Close()
-	if err !=nil{
-		return ans,err
-	}
-	for res.Next(){
-		var emp Employee
-		res.Scan(&emp.Id,&emp.Name,&emp.Age,&emp.Gender,&emp.Role)
-		ans=append(ans,emp)
-	}
-	return ans,nil
-}
-func (dbh* DatabaseHandler)ReadDataId(id string)(Employee,error){
-	db:=dbh.Db
-	var emp Employee
-	res:=db.QueryRow("select ID,Name,Age,Gender,Role from Employee where Id=?",id)
-	if res.Err() !=nil {
-		return emp,errors.New("Data is not found")
-	}
-	res.Scan(&emp.Id,&emp.Name,&emp.Age,&emp.Gender,&emp.Role)
-	return emp,nil
-}
 func (dbh *DatabaseHandler)dbConnection() error{
 	user:="Pankaj"
 	password:="Pankaj@123"
@@ -70,6 +45,7 @@ func (dbh *DatabaseHandler)CreateData(emp Employee)Employee{
 	return emp
 }
 func CreateDataHandler(w http.ResponseWriter,r* http.Request){
+	w.Header().Set("content-type","application/json")
 	var dbh DatabaseHandler
 	err:=dbh.dbConnection()
 	defer dbh.Db.Close()
@@ -78,14 +54,29 @@ func CreateDataHandler(w http.ResponseWriter,r* http.Request){
 	}
 	var emp Employee
 	err = json.NewDecoder(r.Body).Decode(&emp)
-	log.Print(emp)
 	if err != nil {
 		http.Error(w,"Input is not in correct format",http.StatusBadRequest)
 	}
-	log.Print(emp)
 	emp=dbh.CreateData(emp)
 	post, _ := json.Marshal(emp)
 	w.Write(post)
+}
+
+
+func (dbh* DatabaseHandler)ReadDataAll()([]Employee,error){
+	db:=dbh.Db
+	var ans []Employee
+	res,err:=db.Query("select Id,Name,Age,Gender,Role from Employee")
+	defer res.Close()
+	if err !=nil{
+		return ans,err
+	}
+	for res.Next(){
+		var emp Employee
+		res.Scan(&emp.Id,&emp.Name,&emp.Age,&emp.Gender,&emp.Role)
+		ans=append(ans,emp)
+	}
+	return ans,nil
 }
 
 func ReadDataAllHandler(w http.ResponseWriter,r* http.Request){
@@ -95,62 +86,98 @@ func ReadDataAllHandler(w http.ResponseWriter,r* http.Request){
 	defer dbh.Db.Close()
 	if err != nil {
 		http.Error(w,err.Error(),http.StatusInternalServerError)
+		return
 	}
 	result,err:=dbh.ReadDataAll()
 	if err !=nil {
 		http.Error(w,err.Error(),http.StatusBadRequest)
+		return
 	}
 	post, err := json.Marshal(result)
 	if err !=nil {
-		http.Error(w,err.Error(),http.StatusInternalServerError)
-	} else {
-		w.Write(post)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	w.Write(post)
 }
 
 
-func ReadDataId(w http.ResponseWriter,r *http.Request) {
+func (dbh* DatabaseHandler)ReadDataId(id string)(Employee,error){
+	db:=dbh.Db
+	var emp Employee
+	res:=db.QueryRow("select ID,Name,Age,Gender,Role from Employee where Id=?",id)
+	err:=res.Scan(&emp.Id,&emp.Name,&emp.Age,&emp.Gender,&emp.Role)
+	if err !=nil {
+		return emp,errors.New("Id does not exist")
+	}
+	return emp,nil
+}
+
+func ReadDataIdHandler(w http.ResponseWriter,r *http.Request) {
 	w.Header().Set("content-type","application/json")
 	var dbh DatabaseHandler
 	err:=dbh.dbConnection()
 	defer dbh.Db.Close()
 	if err != nil {
 		http.Error(w,err.Error(),http.StatusInternalServerError)
+		return
 	}
 	vars:=mux.Vars(r)
 	id:=vars["id"]
 	result,err:=dbh.ReadDataId(id)
 	if err != nil {
 		http.Error(w,err.Error(),http.StatusBadRequest)
+		return
 	}
 	post, err := json.Marshal(result)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-	} else {
-		w.Write(post)
+		return
 	}
-}
+	w.Write(post)
 
+}
+func (dbh *DatabaseHandler)ReadDataQuery(query string)([]Employee,error){
+	db:=dbh.Db
+	var ans []Employee
+	//log.Print(query)
+	res,err:=db.Query(query)
+	if err != nil {
+		return ans,errors.New("Query is not in apropriate format")
+	}
+	for  res.Next() {
+		var emp Employee
+		res.Scan(&emp.Id,&emp.Name,&emp.Age,&emp.Gender,&emp.Role)
+		ans=append(ans,emp)
+	}
+	return ans,nil
+}
 func ReadDataQueryHandler(w http.ResponseWriter,r* http.Request){
+	w.Header().Set("content-type","application/json")
 	var dbh DatabaseHandler
 	err:=dbh.dbConnection()
 	defer dbh.Db.Close()
 	if err != nil {
 		http.Error(w,err.Error(),http.StatusInternalServerError)
+		return
 	}
-	//vars:=mux.Vars(r)
-	//id:=vars["query"]
-	result,err:=dbh.ReadDataAll()
+	vars:=mux.Vars(r)
+	query:=vars["query"]
+	query="select Id,Name,Age,Gender,Role from Employee where "+query
+	result,err:=dbh.ReadDataQuery(query)
+	log.Print(result )
 	if err != nil {
 		http.Error(w,err.Error(),http.StatusBadRequest)
+		return
 	}
 	post,err :=json.Marshal(result)
 	if err != nil {
 		http.Error(w,err.Error(),http.StatusInternalServerError)
-	} else {
-		w.Write(post)
+		return
 	}
+	w.Write(post)
 }
+
 func (dbh *DatabaseHandler)checkuser(id string)bool {
 	db:=dbh.Db
 	res:=db.QueryRow(fmt.Sprintf("select Id from Employee where Id= %v",id))
@@ -175,46 +202,52 @@ func UpdateDataHandler(w http.ResponseWriter,r* http.Request) {
 	var dbh DatabaseHandler
 	err:=dbh.dbConnection()
 	defer dbh.Db.Close()
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
+
 	vars := mux.Vars(r)
 	id := vars["id"]
 	if dbh.checkuser(id) == false {
 		http.Error(w, "Id does not Exist", http.StatusBadRequest)
 		return
 	}
+
 	var emp Employee
 	err = json.NewDecoder(r.Body).Decode(&emp)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Data is not in correct format", http.StatusBadRequest)
 		return
 	}
+
 	log.Print(emp)
-	result, err := dbh.UpdateData(id, emp)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-	}
+	result, _ := dbh.UpdateData(id, emp)
 	post, _ := json.Marshal(result)
 	w.Write(post)
 }
+
 func (dbh *DatabaseHandler)DeleteData(id string)error{
 	db:=dbh.Db
 	result,err:=db.Exec("delete from Employee where id = ?",id)
+	if err != nil {
+		return errors.New("Input is not in correct format")
+	}
 	if num,_:=result.RowsAffected();err != nil || int(num)==0 {
 		return errors.New("Id does not exist")
 	}
 	return nil
 }
 func DeleteDataHandler(w http.ResponseWriter,r* http.Request){
+	//w.Header().Set("content-type","application/json")
 	var dbh DatabaseHandler
 	err:=dbh.dbConnection()
+	defer dbh.Db.Close()
 	if err !=nil {
 		http.Error(w,err.Error(),http.StatusInternalServerError)
 		return
 	}
-	defer dbh.Db.Close()
 	vars:=mux.Vars(r)
 	id:=vars["id"]
 	err=dbh.DeleteData(id)
@@ -223,16 +256,14 @@ func DeleteDataHandler(w http.ResponseWriter,r* http.Request){
 		return
 	}
 	w.Write([]byte("Deleted Successfully"))
-	w.WriteHeader(http.StatusOK)
 }
-
 
 func main(){
 	r:=mux.NewRouter()
 	r.HandleFunc("/employee",CreateDataHandler).Methods("POST")
 	r.HandleFunc("/employee",ReadDataAllHandler).Methods("GET")
 	//r.HandleFunc("/employee/{id}",ReadDataIdHandler).Methods("GET")
-	//r.HandleFunc("/employee/{query}",ReadDataQuery).Methods("GET")
+	r.HandleFunc("/employee/{query}",ReadDataQueryHandler).Methods("GET")
 	r.HandleFunc("/employee/{id}",UpdateDataHandler).Methods("PUT")
 	r.HandleFunc("/employee/{id}",DeleteDataHandler).Methods("DELETE")
 	http.ListenAndServe(":8080",r)

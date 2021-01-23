@@ -5,13 +5,46 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"log"
 	"reflect"
+	"strconv"
 	"testing"
 )
 
+func TestCreate(t *testing.T) {
+	fdb,mock,err:=sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error while connecting a mock Database : %v", err)
+	}
+	dbh:=DatabaseHandler{fdb}
+	test_cases:=[]struct{
+		input Employee
+		generatedId string
+	}{
+		{
+			Employee{"","Pankaj Sharma",22,"M", "1"},"1",
+		},
+		{
+			Employee{"","Rudra Bhardwaj",23,"M","2"},"2",
+		},
+	}
+	str:=[]string{"Id","Name","Age","Gender","Role"}
+	for i,tc:=range test_cases{
+		mock.NewRows(str).AddRow(tc.generatedId,tc.input.Name,tc.input.Age,tc.input.Gender,tc.input.Role)
+		lastReturnedId,_:=strconv.Atoi(tc.generatedId)
+		mock.ExpectExec("insert into Employee(.+) values*").WithArgs(tc.input.Name,tc.input.Age,tc.input.Gender,tc.input.Role).WillReturnResult(sqlmock.NewResult(int64(lastReturnedId),1))
+		result:=dbh.CreateData(tc.input)
+		expecteOutput:=tc.input
+		expecteOutput.Id=tc.generatedId
+		if expecteOutput != result {
+			t.Fatalf("Failed at %v\nExpected Output : %v\nActual Output : %v\n", i+1, expecteOutput, result)
+		}
+		t.Logf("Passed at %v\n", i+1)
+	}
+
+}
 func TestReadAll(t *testing.T) {
 	fdb, mock, err := sqlmock.New() //create mock database
 	if err != nil {
-		log.Fatalf("Error comes when connecting a mock Database : %v", err)
+		log.Fatalf("Error while connecting a mock Database : %v", err)
 	}
 	dbh := DatabaseHandler{fdb}
 	db := dbh.Db
@@ -108,6 +141,44 @@ func TestUpdateFunc(t *testing.T){
 		}
 		if result != tc.output {
 			t.Fatalf("Failed at %v\nExpected Output : %v\nActual Output : %v\n", i+1, tc.output, result)
+		}
+		t.Logf("Passed at %v\n", i+1)
+	}
+
+}
+
+
+func TestDeleteData(t *testing.T){
+	fdb,mock,err:=sqlmock.New()
+	if err != nil {
+		t.Fatalf("Can't connect to a mock database")
+	}
+	dbh:=DatabaseHandler{fdb}
+	db:=dbh.Db
+	defer db.Close()
+	testCase:=[]struct{
+		input string
+		expectedRetrunvalue  int64
+		err error
+	}{
+		{
+			"1",1,nil,
+		},
+		{
+			"2",0,errors.New("Id does not exist"),
+		},
+		{
+			"3",1,nil,
+		},
+	}
+	//str:=[]string{"Id","Name","Age","Gender","Role"}
+	for i,tc:= range testCase {
+		mock.ExpectExec("delete from Employee*").WithArgs(tc.input).WillReturnResult(sqlmock.NewResult(0,tc.expectedRetrunvalue))
+		err:=dbh.DeleteData(tc.input)
+		//if err!=nil && tc.err!=nil && err.Error() != tc.err.Error() {
+		if !reflect.DeepEqual(err,tc.err){
+			t.Fatalf("Failed at %v\nExpected Error : %v\nActual Error : %v\n", i+1, tc.err.Error(), err.Error())
+			//t.Logf("%v\n%v\n%v\n%T\n%T",i+1,err,tc.err,err,tc.err)
 		}
 		t.Logf("Passed at %v\n", i+1)
 	}
